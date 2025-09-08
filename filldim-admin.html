@@ -1,0 +1,542 @@
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title></title>
+<style type="text/css">:root { --bg:#fff; --border:#e5e7eb; --muted:#6b7280; --ok:#0a7; --err:#b00020; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 980px; margin: 24px auto; padding: 0 12px; color:#111; background:var(--bg); }
+  h1 { margin: 0 0 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 16px 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display:block; font-weight:600; margin: 8px 0 6px; }
+  input, select, button, textarea { padding: 10px; border:1px solid var(--border); border-radius:10px; font-size:14px; }
+  input.w-full, select.w-full, textarea.w-full { width: 100%; }
+  button { cursor: pointer; }
+  button.primary { background:#111; color:#fff; border-color:#111; }
+  button.ghost { background:#fff; }
+  table { width:100%; border-collapse: collapse; }
+  th, td { border-top:1px solid var(--border); padding: 8px; text-align:left; vertical-align: middle; }
+  thead th { border-bottom:1px solid var(--border); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .pill { padding:4px 8px; border-radius:999px; border:1px solid var(--border); font-size:12px; }
+  .ok { color: var(--ok); }
+  .err { color: var(--err); }
+  #resultBox { display:none; border:1px dashed var(--border); border-radius:12px; padding:12px; margin-top:12px; }
+  code.inline { background:#f6f8fa; border:1px solid var(--border); padding:2px 6px; border-radius:6px; }
+</style>
+<h1>Admin &mdash; Create a Game</h1>
+
+<p class="muted" id="me">Signing in&hellip;</p>
+<!-- 1) Sign-in -->
+
+<div class="card">
+<h2>Sign in (Magic Link)</h2>
+
+<p class="muted" style="margin-top:-6px">Use the organizer email allowed by Firestore Rules.</p>
+
+<div class="row"><input id="email" placeholder="your-email@example.com" /><button class="ghost" id="btnEmailLink">Send magic link</button></div>
+
+<p class="muted" id="authInfo">&nbsp;</p>
+</div>
+<!-- 2) Game details -->
+
+<div class="card">
+<h2>Game details</h2>
+
+<div class="row" style="gap:16px; width:100%; align-items:flex-start;">
+  <div style="flex:1; min-width:260px">
+    <label>Team A name</label>
+    <input class="w-full" id="teamAName" value="Team A" />
+    <label>Team A emblem (image URL, optional)</label>
+    <input class="w-full" id="teamAEmblem" placeholder="https://..." />
+    <!-- NEW -->
+    <label>Team A color (HEX)</label>
+    <input id="teamAColor" type="color" value="#1E3A8A" />
+    <p class="muted" style="margin:6px 0 0">Stored as <code class="inline">team_a_color</code>.</p>
+  </div>
+
+  <div style="flex:1; min-width:260px">
+    <label>Team B name</label>
+    <input class="w-full" id="teamBName" value="Team B" />
+    <label>Team B emblem (image URL, optional)</label>
+    <input class="w-full" id="teamBEmblem" placeholder="https://..." />
+    <!-- NEW -->
+    <label>Team B color (HEX)</label>
+    <input id="teamBColor" type="color" value="#B91C1C" />
+    <p class="muted" style="margin:6px 0 0">Stored as <code class="inline">team_b_color</code>.</p>
+  </div>
+</div>
+
+
+<div class="row" style="gap:16px; margin-top:8px;">
+<div style="min-width:180px;"><label>Players per team</label> <input id="ppt" max="50" min="1" type="number" value="7" /></div>
+
+<div style="min-width:280px;"><label>Referee email (optional)</label> <input id="refEmail" placeholder="referee@example.com" /></div>
+
+<div style="min-width:180px;"><label>Site (acronym, optional)</label> <input id="siteAcr" placeholder="e.g. OFR" />
+<p class="muted" style="margin:6px 0 0">2&ndash;8 letters (stored as <code class="inline">site_acronym</code>).</p>
+</div>
+</div>
+</div>
+<!-- 3) Players -->
+
+<div class="card">
+<h2>Players</h2>
+
+<div class="actions"><button class="ghost" id="btnAutoRows">Prepare rows (2 &times; players/team)</button><button class="ghost" id="btnAddRow">Add a row</button><button class="ghost" id="btnClearEmpty">Remove empty rows</button></div>
+
+<table>
+<thead>
+  <tr>
+    <th style="width:28px;">&nbsp;</th>
+    <th>Full name</th>
+    <th>Team</th>
+    <th>Role</th>
+  </tr>
+</thead>
+<tbody id="playersBody"></tbody>
+</table>
+
+<p class="muted">Only rows with both <strong>Name</strong> and <strong>Email</strong> will be saved.</p>
+</div>
+
+<!-- 4) Passwords -->
+<div class="card">
+  <h2>Passwords</h2>
+  <p class="muted">These are generated when you click “Create Game”. They are stored securely and are <em>not</em> readable by players.</p>
+  <div class="row" style="gap:16px; flex-wrap:wrap">
+    <div>
+      <label>Referee password</label>
+      <input id="refPwdOut" class="w-full" readonly placeholder="Will be generated…" />
+      <button class="ghost" id="copyRefPwd">Copy</button>
+    </div>
+    <div>
+      <label>Player password</label>
+      <input id="plyPwdOut" class="w-full" readonly placeholder="Will be generated…" />
+      <button class="ghost" id="copyPlyPwd">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- 5) Create -->
+<div class="card">
+<h2>Create</h2>
+
+  <div class="row">
+    <button class="primary" id="create">Create Game</button>
+    <span id="status" class="muted"></span>
+  </div>
+
+<div id="resultBox">
+<p><strong>Game created!</strong></p>
+
+<p>Copy this Game ID and paste it into your public game page:</p>
+
+<div class="row" style="gap:8px;"><input class="w-full" id="gameIdOut" readonly="readonly" /><button class="ghost" id="copyId">Copy</button></div>
+
+<p class="muted" style="margin-top:8px;">
+  Example to paste in your public page:
+  <code class="inline">const GAME_ID = "<span id="gameIdForSnippet"></span>";</code>
+</p>
+
+</div>
+</div>
+<!-- Firebase (compat) --><script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+<script>
+// === Firebase config ===
+const firebaseConfig = {
+  apiKey: "AIzaSyCyl03UVC3DVUMqZmd01wUdvaowZBBGYqo",
+  authDomain: "filldim-dev.firebaseapp.com",
+  projectId: "filldim-dev",
+  storageBucket: "filldim-dev.firebasestorage.app",
+  messagingSenderId: "843763394432",
+  appId: "1:843763394432:web:6cad7a2971f8df1fc68365",
+  measurementId: "G-99BQCKJS3B"
+};
+try { firebase.initializeApp(firebaseConfig); } catch(e) {}
+
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// === Allowed organizers (must match Firestore Rules) ===
+const ALLOWED_ORGANIZERS = [
+  "shaynelock.hall@gmail.com",
+  "ifeelhuerta@gmail.com"
+];
+
+// === UI refs ===
+const meEl          = document.getElementById('me');
+const authInfo      = document.getElementById('authInfo');
+const emailInput    = document.getElementById('email');
+const btnEmailLink  = document.getElementById('btnEmailLink');
+
+const teamAName     = document.getElementById('teamAName');
+const teamBName     = document.getElementById('teamBName');
+const teamAEmblem   = document.getElementById('teamAEmblem');
+const teamBEmblem   = document.getElementById('teamBEmblem');
+
+// Optional color inputs (if present)
+const teamAColor    = document.getElementById('teamAColor');
+const teamBColor    = document.getElementById('teamBColor');
+
+const ppt           = document.getElementById('ppt');
+const refEmail      = document.getElementById('refEmail'); // optional, display-only
+const siteAcr       = document.getElementById('siteAcr');
+
+const playersBody   = document.getElementById('playersBody');
+const btnAutoRows   = document.getElementById('btnAutoRows');
+const btnAddRow     = document.getElementById('btnAddRow');
+const btnClearEmpty = document.getElementById('btnClearEmpty');
+
+const createBtn         = document.getElementById('create');
+const statusEl          = document.getElementById('status');
+const resultBox         = document.getElementById('resultBox');
+const gameIdOut         = document.getElementById('gameIdOut');
+const copyIdBtn         = document.getElementById('copyId');
+const gameIdForSnippet  = document.getElementById('gameIdForSnippet');
+
+// NEW: password outputs (optional fields in your HTML)
+const refPwdOut   = document.getElementById('refPwdOut');
+const plyPwdOut   = document.getElementById('plyPwdOut');
+const copyRefPwd  = document.getElementById('copyRefPwd');
+const copyPlyPwd  = document.getElementById('copyPlyPwd');
+
+// ===== Helpers =====
+const ROLES    = ["keeper","beater","chaser","seeker"];
+const urlRegex = /^https?:\/\/\S+$/i;
+const hexRegex = /^#([0-9A-Fa-f]{6})$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+function normEmail(v){ return (v || "").trim().toLowerCase(); }
+function toLowerSafe(s){ return (s || "").trim().toLowerCase(); }
+function setStatus(txt){ if (statusEl) statusEl.textContent = txt || ""; }
+function clampInt(v, min, max){ let n = parseInt(v,10); if (isNaN(n)) n=min; return Math.min(max, Math.max(min, n)); }
+
+// Normalize a full name to a stable “key” used in indexes and sessions
+function nameKeyFromFull(n){
+  return (n || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\//g, "-");
+}
+
+// URL-safe random secret (16 bytes → ~22 chars)
+function makeSecret(){
+  const a = new Uint8Array(16);
+  (window.crypto || window.msCrypto).getRandomValues(a);
+  return btoa(String.fromCharCode(...a))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+function addPlayerRow(preset) {
+  if (!playersBody) return;
+  const tr = document.createElement('tr');
+
+  // delete
+  const tdX = document.createElement('td');
+  const btnDel = document.createElement('button');
+  btnDel.textContent = "✕";
+  btnDel.title = "Remove row";
+  btnDel.onclick = () => tr.remove();
+  tdX.appendChild(btnDel);
+  tr.appendChild(tdX);
+
+  // Full name
+  const tdName = document.createElement('td');
+  const inpName = document.createElement('input');
+  inpName.placeholder = "Full name";
+  inpName.value = preset?.display_name || "";
+  inpName.className = "w-full";
+  tdName.appendChild(inpName);
+  tr.appendChild(tdName);
+
+  // Team
+  const tdTeam = document.createElement('td');
+  const selTeam = document.createElement('select');
+  ["A","B"].forEach(v => {
+    const o = document.createElement('option'); o.value = v; o.textContent = v;
+    if ((preset?.team || "A") === v) o.selected = true;
+    selTeam.appendChild(o);
+  });
+  tdTeam.appendChild(selTeam);
+  tr.appendChild(tdTeam);
+
+  // Role
+  const tdRole = document.createElement('td');
+  const selRole = document.createElement('select');
+  ROLES.forEach(r => {
+    const o = document.createElement('option'); o.value = r; o.textContent = r;
+    if ((preset?.role || "chaser") === r) o.selected = true;
+    selRole.appendChild(o);
+  });
+  tdRole.appendChild(selRole);
+  tr.appendChild(tdRole);
+
+  playersBody.appendChild(tr);
+}
+
+function getRowsData() {
+  // [{display_name, team, role}]
+  const rows = [];
+  if (!playersBody) return rows;
+  playersBody.querySelectorAll('tr').forEach(tr => {
+    const tds = tr.children;
+    const display_name = (tds[1]?.querySelector('input')?.value || "").trim();
+    const team         = tds[2]?.querySelector('select')?.value || "A";
+    const role         = tds[3]?.querySelector('select')?.value || "chaser";
+    if (display_name) rows.push({ display_name, team, role });
+  });
+  return rows;
+}
+
+function autoRows() {
+  if (!playersBody) return;
+  playersBody.innerHTML = "";
+  const perTeam = clampInt(ppt?.value, 1, 50);
+  const total = perTeam * 2;
+  for (let i=0;i<total;i++) {
+    addPlayerRow({
+      display_name: "",
+      team: i < perTeam ? "A" : "B",
+      role: ROLES[i % ROLES.length]
+    });
+  }
+}
+
+// Bind row helpers
+if (btnAutoRows) btnAutoRows.onclick = autoRows;
+if (btnAddRow)   btnAddRow.onclick   = () => addPlayerRow();
+if (btnClearEmpty) btnClearEmpty.onclick = () => {
+  if (!playersBody) return;
+  playersBody.querySelectorAll('tr').forEach(tr => {
+    const nameVal = (tr.children[1]?.querySelector('input')?.value || "").trim();
+    if (!nameVal) tr.remove();
+  });
+};
+
+// Initial rows
+autoRows();
+
+// ===== Magic link sign-in (organizers only) =====
+async function handleEmailLinkIfPresent() {
+  try {
+    if (auth.isSignInWithEmailLink(window.location.href)) {
+      const saved = localStorage.getItem("admin_email") || prompt("Type your email again to finish sign-in:");
+      if (!saved) return;
+      const cred = firebase.auth.EmailAuthProvider.credentialWithLink(saved, window.location.href);
+      if (auth.currentUser) {
+        try { await auth.currentUser.linkWithCredential(cred); }
+        catch { await auth.signInWithCredential(cred); }
+      } else {
+        await auth.signInWithCredential(cred);
+      }
+      localStorage.removeItem("admin_email");
+      history.replaceState({}, document.title, location.pathname);
+      alert("Signed in!");
+    }
+  } catch(e) {
+    alert("Magic link error: " + e.message);
+  }
+}
+
+if (btnEmailLink) btnEmailLink.onclick = async () => {
+  const em = normEmail(emailInput?.value);
+  if (!em || !emailRegex.test(em)) return alert("Please enter a valid email.");
+  try {
+    await auth.sendSignInLinkToEmail(em, {
+      url: location.href, // keep the same URL for return
+      handleCodeInApp: true
+    });
+    localStorage.setItem("admin_email", em);
+    alert("Magic link sent. Open it on this device.");
+  } catch(e) {
+    alert(e.message);
+  }
+};
+
+auth.onAuthStateChanged(async () => {
+  await handleEmailLinkIfPresent();
+  const u = auth.currentUser;
+  if (meEl)     meEl.textContent = u?.email ? `Signed in: ${u.email}` : (u ? `Signed in (anonymous): ${u.uid.slice(0,6)}` : "Signed out");
+  if (authInfo) authInfo.textContent = u?.email ? "Ready to create a game." : "Use your organizer email first.";
+});
+
+// ===== Create game =====
+if (createBtn) createBtn.onclick = async () => {
+  try {
+    setStatus("Creating…");
+    if (!auth.currentUser) {
+      alert("Please sign in first.");
+      setStatus("Please sign in.");
+      return;
+    }
+
+    // Organizer check
+    await auth.currentUser.getIdToken(true);
+    const myEmail = (auth.currentUser.email || "").trim().toLowerCase();
+    if (!ALLOWED_ORGANIZERS.includes(myEmail)) {
+      alert(`This email is not allowed to create games: ${myEmail || "none"}`);
+      setStatus("Organizer email required.");
+      return;
+    }
+
+    // Form
+    const perTeam = clampInt(ppt?.value, 1, 50);
+    const tA = (teamAName?.value || "Team A").trim();
+    const tB = (teamBName?.value || "Team B").trim();
+
+    const emblemA = (teamAEmblem?.value || "").trim();
+    const emblemB = (teamBEmblem?.value || "").trim();
+    if (emblemA && !urlRegex.test(emblemA)) { alert("Team A emblem must be a valid URL (or leave empty)."); setStatus(""); return; }
+    if (emblemB && !urlRegex.test(emblemB)) { alert("Team B emblem must be a valid URL (or leave empty)."); setStatus(""); return; }
+
+    let colorA = (teamAColor?.value || "").trim();
+    let colorB = (teamBColor?.value || "").trim();
+    if (colorA && !hexRegex.test(colorA)) { alert("Team A color must be a HEX like #RRGGBB."); setStatus(""); return; }
+    if (colorB && !hexRegex.test(colorB)) { alert("Team B color must be a HEX like #RRGGBB."); setStatus(""); return; }
+
+    const refEm = normEmail(refEmail?.value); // display-only, optional
+    if (refEm && !emailRegex.test(refEm)) { alert("Referee email looks invalid."); setStatus(""); return; }
+
+    let site = (siteAcr?.value || "").trim();
+    if (site) {
+      site = site.toUpperCase();
+      if (!/^[A-Z]{2,8}$/.test(site)) { alert("Site acronym must be 2–8 letters."); setStatus(""); return; }
+    } else site = "";
+
+    // Players (no emails)
+    const players = getRowsData(); // [{display_name, team, role}]
+    if (players.length === 0) { alert("Add at least one player."); setStatus(""); return; }
+
+    // Validate + prevent duplicate normalized names
+    const seenKeys = new Set();
+    for (const p of players) {
+      if (!p.display_name) { alert("All players must have a full name."); setStatus(""); return; }
+      if (!['A','B'].includes(p.team)) { alert(`Invalid team for ${p.display_name}`); setStatus(""); return; }
+      if (!ROLES.includes(p.role))     { alert(`Invalid role for ${p.display_name}`); setStatus(""); return; }
+      const k = nameKeyFromFull(p.display_name);
+      if (seenKeys.has(k)) { alert(`Duplicate player name (normalized): "${p.display_name}". Use unique names.`); setStatus(""); return; }
+      seenKeys.add(k);
+    }
+
+    // Warn if counts exceed perTeam
+    const countA = players.filter(p => p.team === "A").length;
+    const countB = players.filter(p => p.team === "B").length;
+    if (countA > perTeam || countB > perTeam) {
+      if (!confirm(`You set ${perTeam} players per team, but you entered A:${countA}, B:${countB}. Continue anyway?`)) {
+        setStatus("Cancelled.");
+        return;
+      }
+    }
+
+    createBtn.disabled = true;
+
+    // Create game doc
+    const gameRef = db.collection("games").doc(); // auto ID
+    const gameId  = gameRef.id;
+
+    await gameRef.set({
+      title: "Capture the Flag",
+      players_per_team: perTeam,
+      team_a_name: tA,
+      team_b_name: tB,
+      team_a_emblem: emblemA,
+      team_b_emblem: emblemB,
+      team_a_color: colorA || "",
+      team_b_color: colorB || "",
+      score_a: 0,
+      score_b: 0,
+      referee_email: refEm || "", // optional / display only
+      referee_uid: null,          // set by referee session later
+      site_acronym: site,
+      created_at: firebase.firestore.FieldValue.serverTimestamp(),
+      created_by: myEmail
+    });
+
+    // Initialize mutes_by_role
+    await Promise.all(
+      ROLES.map(r => gameRef.collection("mutes_by_role").doc(r).set({ is_muted: false }))
+    );
+
+    // Generate per-game secrets (passwords)
+    const refSecret = makeSecret();
+    const plySecret = makeSecret();
+    await gameRef.collection("secrets").doc("referee").set({ secret: refSecret });
+    await gameRef.collection("secrets").doc("player").set({ secret: plySecret });
+
+    // Seed players + players_by_name index in one batch
+    const batch = db.batch();
+    const playersColl = gameRef.collection("players");
+    const pbnColl     = gameRef.collection("players_by_name");
+
+    players.forEach(p => {
+      const key = nameKeyFromFull(p.display_name);
+      const pRef = playersColl.doc(); // pre-generate id
+      batch.set(pRef, {
+        display_name: p.display_name,
+        display_name_lower: toLowerSafe(p.display_name),
+        team: p.team,
+        role: p.role,
+        session_uid: null,
+        game_id: gameId,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // index: one doc per normalized name (enforces unique names in Rules)
+      const idxRef = pbnColl.doc(key);
+      batch.set(idxRef, {
+        player_id: pRef.id,
+        display_name: p.display_name,
+        display_name_lower: toLowerSafe(p.display_name),
+        team: p.team,
+        role: p.role,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    await batch.commit();
+
+    // Show results (ID + passwords)
+    if (gameIdOut)        gameIdOut.value = gameId;
+    if (gameIdForSnippet) gameIdForSnippet.textContent = gameId;
+    if (resultBox)        resultBox.style.display = "block";
+
+    if (refPwdOut) refPwdOut.value = refSecret;
+    if (plyPwdOut) plyPwdOut.value = plySecret;
+
+    if (!refPwdOut || !plyPwdOut) {
+      alert(`Game created!\n\nGame ID: ${gameId}\nReferee password: ${refSecret}\nPlayer password: ${plySecret}`);
+    } else {
+      alert("Game created! Copy the ID and the passwords.");
+    }
+
+    setStatus("Done.");
+  } catch (e) {
+    console.error(e);
+    alert("Error: " + (e.message || e));
+    setStatus("Error.");
+  } finally {
+    if (createBtn) createBtn.disabled = false;
+  }
+};
+
+// Copy helpers
+if (copyIdBtn) copyIdBtn.onclick = async () => {
+  const val = (gameIdOut?.value || "").trim();
+  if (!val) return;
+  try { await navigator.clipboard.writeText(val); alert("Game ID copied!"); }
+  catch { alert("Could not copy. Please select and copy it manually."); }
+};
+
+if (copyRefPwd) copyRefPwd.onclick = async () => {
+  const val = (refPwdOut?.value || "").trim();
+  if (!val) return;
+  try { await navigator.clipboard.writeText(val); alert("Referee password copied!"); }
+  catch { alert("Could not copy. Please select and copy it manually."); }
+};
+
+if (copyPlyPwd) copyPlyPwd.onclick = async () => {
+  const val = (plyPwdOut?.value || "").trim();
+  if (!val) return;
+  try { await navigator.clipboard.writeText(val); alert("Player password copied!"); }
+  catch { alert("Could not copy. Please select and copy it manually."); }
+};
+</script>
